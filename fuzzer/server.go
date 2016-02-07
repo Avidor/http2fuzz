@@ -11,7 +11,7 @@ import (
 	"net"
 
 	"github.com/c0nrad/http2fuzz/config"
-	"github.com/c0nrad/http2fuzz/replay"
+//	"github.com/c0nrad/http2fuzz/replay"
 )
 
 func FuzzConnection(conn net.Conn) {
@@ -100,7 +100,7 @@ func Server() {
 			break
 		}
 		log.Printf("server: accepted from %s", conn.RemoteAddr())
-		replay.TruncateFile()
+		TruncateFile()
 		FuzzConnection(conn)
 	}
 }

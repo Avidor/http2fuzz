@@ -14,7 +14,6 @@ import (
 	"net"
 	"strings"
 
-	"github.com/c0nrad/http2fuzz/replay"
 
 	"github.com/bradfitz/http2"
 	"github.com/bradfitz/http2/hpack"
@@ -165,30 +164,45 @@ func settingByName(name string) (http2.SettingID, bool) {
 
 func (conn *Connection) SendPing(data [8]byte) error {
 	err := conn.Framer.WritePing(false, data)
+	if err == nil {
+                SavePing(data)
+        }
 	return conn.handleError(err)
 }
 
 func (conn *Connection) WriteSettingsFrame(settings []http2.Setting) error {
 	fmt.Println("SettingsFrame", settings)
 	err := conn.Framer.WriteSettings(settings...)
+	if err == nil {
+                SaveSettingsFrame(settings)
+        }
 	return conn.handleError(err)
 }
 
 func (conn *Connection) WriteDataFrame(streamID uint32, endStream bool, data []byte) error {
 	fmt.Println("DataFrame", streamID, endStream, data)
 	err := conn.Framer.WriteData(streamID, endStream, data)
+        if err == nil {
+                SaveDataFrame(streamID, endStream, data)
+        }
 	return conn.handleError(err)
 }
 
 func (conn *Connection) WritePushPromiseFrame(promise http2.PushPromiseParam) error {
 	fmt.Println("PushPromiseFrame", promise)
 	err := conn.Framer.WritePushPromise(promise)
+        if err == nil {
+                SavePushPromiseFrame(promise.StreamID, promise.PromiseID, promise.BlockFragment, promise.EndHeaders, promise.PadLength)
+        }
 	return conn.handleError(err)
 }
 
 func (conn *Connection) WriteContinuationFrame(streamID uint32, endStream bool, data []byte) error {
 	fmt.Println("ContinuationFrame", streamID, endStream, data)
 	err := conn.Framer.WriteContinuation(streamID, endStream, data)
+        if err == nil {
+                SaveContinuationFrame(streamID, endStream, data)
+        }
 	return conn.handleError(err)
 }
 
@@ -196,25 +210,36 @@ func (conn *Connection) WritePriorityFrame(streamId, streamDep uint32, weight ui
 	fmt.Println("PriorityFrame", streamId, streamDep, weight, exclusive)
 	priorityParam := http2.PriorityParam{StreamDep: streamDep, Exclusive: exclusive, Weight: weight}
 	err := conn.Framer.WritePriority(streamId, priorityParam)
+        if err == nil {
+                SavePriorityFrame(streamId, streamDep, weight, exclusive)
+        }
 	return conn.handleError(err)
 }
 
 func (conn *Connection) WriteResetFrame(streamId uint32, errorCode uint32) error {
 	fmt.Println("ResetFrame", streamId, errorCode)
 	err := conn.Framer.WriteRSTStream(streamId, http2.ErrCode(errorCode))
+	if err == nil {
+		SaveResetFrame(streamId, errorCode)
+	}
+
 	return conn.handleError(err)
 }
 
 func (conn *Connection) WriteWindowUpdateFrame(streamId, incr uint32) error {
 	fmt.Println("WindowUpdateFrame", streamId, incr)
 	err := conn.Framer.WriteWindowUpdate(streamId, incr)
+	if err == nil {
+		SaveWindowUpdateFrame(streamId, incr)
+	}
+
 	return conn.handleError(err)
 }
 
 func (conn *Connection) WriteRawFrame(frameType, flags uint8, streamID uint32, payload []byte) error {
 	err := conn.Framer.WriteRawFrame(http2.FrameType(frameType), http2.Flags(flags), streamID, payload)
 	if err == nil {
-		replay.SaveRawFrame(frameType, flags, streamID, payload)
+		SaveRawFrame(frameType, flags, streamID, payload)
 	}
 
 	return conn.handleError(err)

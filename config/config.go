@@ -14,16 +14,12 @@ const (
 	ModeServer = "server"
 )
 
-const (
-	ReplayWriteFilename = "./replay.json"
-	ReplayReadFilename  = "./replay.json"
-)
-
 var RestartDelay time.Duration
 var FuzzDelay time.Duration
 var Target string
 var FuzzMode string
 var ReplayMode bool
+var Tls bool
 
 var Port string
 var Interface string
@@ -33,7 +29,7 @@ var KeyboardDelay = false
 
 func init() {
 	restartMillisecond := 10
-	fuzzDelay := 100
+	fuzzDelay := 10
 
 	flag.StringVar(&Target, "target", "", "HTTP2 server to fuzz in host:port format")
 	flag.IntVar(&restartMillisecond, "restart-delay", restartMillisecond, "number a milliseconds to wait between broken connections")
@@ -42,7 +38,8 @@ func init() {
 	flag.StringVar(&Port, "port", "8000", "port to listen from")
 	flag.StringVar(&Interface, "listen", "0.0.0.0", "interface to listen from")
 
-	// flag.BoolVar(&ReplayMode, "replay", false, "replay frames from replay.json")
+	flag.BoolVar(&ReplayMode, "replay", false, "replay frames from replay.json")
+	flag.BoolVar(&Tls, "tls", true, "Use TLS or cleartext: tls is enabled by default, false is disabled")
 	flag.Parse()
 
 	RestartDelay = time.Duration(restartMillisecond) * time.Millisecond
@@ -56,5 +53,6 @@ func init() {
 }
 
 func IsTLS() bool {
-	return true
+//	return true
+	return Tls
 }

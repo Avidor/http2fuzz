@@ -115,7 +115,6 @@ http2fuzz/
     certs/     Holds localhost certifcates for fuzzing as an http2 server
     docs/      Holds documents and pictures
     fuzzer/    Holds the actual fuzzing code for client/server, along with an http2 connection wrapper class
-    replay/    Holds code for replaying packets from a json file
     util/      Holds common utility functions
 ```
 
@@ -125,9 +124,10 @@ fuzzer/fuzzer.go contains all the fuzzing strategies.
 
 ## Replay Mode
 
-The code recently got refactored and it hasen't been refactoed back in, and it only works with raw frames fuzzer, for testing with single frames, a script like this works:
+The fuzzer saves all running data in JSON format. In order to run replay the json file needs to be renamed to replay.json and reside in the same folder as the binary. 
 
-```
+In order to run a single frame you can use the following script:
+
 package main
 
 import (
