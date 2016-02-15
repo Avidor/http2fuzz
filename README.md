@@ -127,7 +127,7 @@ fuzzer/fuzzer.go contains all the fuzzing strategies.
 The fuzzer saves all running data in JSON format. In order to run replay the json file needs to be renamed to replay.json and reside in the same folder as the binary. 
 
 In order to run a single frame you can use the following script:
-
+```
 package main
 
 import (
