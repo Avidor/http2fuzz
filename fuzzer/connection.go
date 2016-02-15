@@ -260,12 +260,17 @@ func (conn *Connection) cmdHeaders(headers map[string]string) error {
 		log.Printf("TODO")
 		return nil
 	}
-	return conn.Framer.WriteHeaders(http2.HeadersFrameParam{
-		StreamID:      conn.StreamID,
-		BlockFragment: hbf,
-		EndStream:     true, // good enough for now
-		EndHeaders:    true, // for now
-	})
+
+        headersFrameParam := http2.HeadersFrameParam{
+                StreamID:      conn.StreamID,
+                BlockFragment: hbf,
+                EndStream:     true, // good enough for now
+                EndHeaders:    true, // for now
+        }
+        
+        conn.Err = conn.Framer.WriteHeaders(headersFrameParam)
+        SaveHeadersFrame(conn.StreamID, headers, true, true)
+        return conn.Err
 }
 
 func (conn *Connection) readFrames() error {

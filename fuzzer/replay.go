@@ -9,7 +9,8 @@ import "github.com/bradfitz/http2"
 import "os"
 import "fmt"
 import "time"
-
+import "log"
+import "bufio"
 var ReplayWriteFile *os.File
 
 func init() {
@@ -49,6 +50,7 @@ func SaveRawFrame(frameType, flags uint8, streamID uint32, payload []byte) {
 		"Flags":       flags,
 		"StreamID":    streamID,
 		"Payload":     util.ToBase64(payload),
+		"Time":		time.Now().Format(time.RFC3339),
 	}
 
 	out := util.ToJSON(frame)
@@ -60,6 +62,7 @@ func SaveResetFrame(streamID uint32, errorCode uint32) {
                 "FrameMethod": "ResetFrame",
                 "StreamID":    streamID,
                 "ErrorCode":    errorCode,
+		"Time":	time.Now().Format(time.RFC3339),
         }
 
         out := util.ToJSON(frame)
@@ -71,6 +74,7 @@ func SaveWindowUpdateFrame(streamId uint32, incr uint32) {
                 "FrameMethod": "WindowUpdateFrame",
                 "StreamID":    streamId,
                 "Incr":    incr,
+		"Time":	time.Now().Format(time.RFC3339),
         }
 	        out := util.ToJSON(frame)
         WriteToReplayFile(out)
@@ -83,6 +87,7 @@ func SavePriorityFrame(streamId, streamDep uint32, weight uint8, exclusive bool)
                 "StreamDep":    streamDep,
 		"Weight":	weight,
 		"Exclusive":	exclusive,
+		"Time": time.Now().Format(time.RFC3339),
         }
         out := util.ToJSON(frame)
         WriteToReplayFile(out)
@@ -94,6 +99,7 @@ func SaveDataFrame(streamID uint32, endStream bool, data []byte){
                 "StreamID":    streamID,
 		"EndStream": endStream,
 		"Data":	util.ToBase64(data),
+		"Time":	time.Now().Format(time.RFC3339),
         }
         out := util.ToJSON(frame)
         WriteToReplayFile(out)
@@ -107,6 +113,7 @@ func SavePushPromiseFrame(streamID uint32, promiseID uint32, blockFragment []byt
                 "BlockFragment" : blockFragment,
                 "EndHeaders" : endHeaders,
                 "PadLength" : padLength,
+		"Time":	time.Now().Format(time.RFC3339),
         }
         out := util.ToJSON(frame)
         WriteToReplayFile(out)
@@ -115,6 +122,7 @@ func SaveSettingsFrame(settings []http2.Setting){
        frame := map[string]interface{}{
                 "FrameMethod": "SettingsFrame",
                 "Settings":    settings,
+		"Time": time.Now().Format(time.RFC3339),
         }
         out := util.ToJSON(frame)
         WriteToReplayFile(out)
@@ -124,6 +132,7 @@ func SavePing(data [8]byte){
        frame := map[string]interface{}{
                 "FrameMethod": "Ping",
                 "Data":    data,
+		"Time": time.Now().Format(time.RFC3339),
         }
         out := util.ToJSON(frame)
         WriteToReplayFile(out)
@@ -135,6 +144,19 @@ func SaveContinuationFrame(streamID uint32, endStream bool, data []byte) {
                 "StreamID":    streamID,
                 "EndStream":    endStream,
                 "Data":       util.ToBase64(data),
+		"Time":	time.Now().Format(time.RFC3339),
+        }
+        out := util.ToJSON(frame)
+        WriteToReplayFile(out)
+}
+func SaveHeadersFrame(streamId uint32, headers map[string]string, endStream bool, endHeaders bool){
+       frame := map[string]interface{}{
+                "FrameMethod": "HeadersFrame",
+                "StreamID":    streamId,
+                "Headers": headers,
+		"EndStream": endStream,
+		"EndHeaders": endHeaders,
+		"Time": time.Now().Format(time.RFC3339),
         }
         out := util.ToJSON(frame)
         WriteToReplayFile(out)
@@ -146,14 +168,23 @@ func isNil(a interface{}) bool {
 }
 
 func RunReplay(c *Connection, filename string) {
-	frames := util.ReadLines(filename)
- 	for _, frameJSON := range frames {
- 		frame := util.FromJSON([]byte(frameJSON))
+
+	file, err := os.Open(filename)
+	if err != nil {
+                log.Fatal(err)
+        }
+        defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+ 	for scanner.Scan() {
+		frameJSON := scanner.Text()
+		frame := util.FromJSON([]byte(frameJSON))
 
  		if c.Err != nil {
  			fmt.Println("Connection Error", c.Err, "restarting connection")
  			c = NewConnection(c.Host, c.IsTLS, c.IsPreface, c.IsSendSettings)
  		}
+		
 		switch frame["FrameMethod"] {
 
 		case "RawFrame":
@@ -168,7 +199,6 @@ func RunReplay(c *Connection, filename string) {
 			for i:= 0; i < len(pingData); i++ {
 				pingDataArray[i] = uint8(pingData[i].(float64))
 			}
-			
 			c.SendPing(pingDataArray)
 		case "SettingsFrame":
 			arrSettings := frame["Settings"].([]interface{})
@@ -192,6 +222,16 @@ func RunReplay(c *Connection, filename string) {
 			padLength := uint8 (frame["PadLength"].(float64)) 
 			promise := http2.PushPromiseParam{streamID, promiseID, blockFragment, endHeaders, padLength}
 			c.WritePushPromiseFrame(promise)
+		case "HeadersFrame":
+			headers := frame["Headers"].(map[string]interface{})
+			headers_map := make(map[string]string)
+			for key, value := range headers {
+        			switch value := value.(type) {
+        			case string:
+            				headers_map[key] = value
+        				}
+    				}
+			c.cmdHeaders(headers_map)
 		case "ContinuationFrame":
 			streamID := uint32(frame["StreamID"].(float64))
 			endStream := frame["EndStream"].(bool)
